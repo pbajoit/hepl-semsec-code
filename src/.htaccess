@@ -1,0 +1,1 @@
+Header always set Content-Security-Policy: "default-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net ;"
