@@ -1,5 +1,9 @@
 <?php
+// include this file to build the CORS headers
+
 const DEVELOPMENT = True;
+const ACCEPT_ALL_HOST = True;
+
 if (DEVELOPMENT) {
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
@@ -11,13 +15,17 @@ if (DEVELOPMENT) {
  */
 function add_headers_origin()
 {
-    // detect the origin of the API
     $possibleOrigins = [
-        "https://" . $_SERVER['HTTP_HOST']
+        "https://semsec.hepl-e-business.be"
     ];
 
+    // detect the origin of the API and accept any host
+    if (ACCEPT_ALL_HOST) {
+        $possibleOrigins[] = "https://" . $_SERVER['HTTP_HOST'];
+    }
+
+    // accept developer origin working on localhost
     if (DEVELOPMENT) {
-        // accept working developer origin
         $possibleOrigins[] = 'http://localhost:5173';
         $possibleOrigins[] = 'http://localhost:5174';
     }
@@ -25,6 +33,7 @@ function add_headers_origin()
     $headers = apache_request_headers();
     $origin = (!empty($headers['Origin'])) ? $headers['Origin'] : '';
 
+    // the origin has to be listed in the $possibleOrigins
     if (!in_array($origin, $possibleOrigins)) {
         $origin = $possibleOrigins[0];
     }
