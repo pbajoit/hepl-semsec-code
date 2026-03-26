@@ -15,7 +15,7 @@
     <h1>CORS <span>Inspector</span></h1>
   </div>
   <div class="subtitle">
-    Démonstration du header <code>Origin</code> et analyse des headers de réponse CORS en temps réel.
+    Démonstration du header <code>Origin</code> et analyse des headers de réponse CORS.
   </div>
 </header>
 
@@ -247,7 +247,7 @@ async function sendRequest() {
   }
 
   // Determine current page origin
-  const pageOrigin = window.location.origin !== 'null' ? window.location.origin : 'file://';
+  const pageOrigin = window.location.origin !== 'file://' ? window.location.origin : 'null';
   const effectiveOrigin = pageOrigin;
   const isCrossOrigin = parsedUrl.origin !== pageOrigin;
 
@@ -401,7 +401,7 @@ document.getElementById('originInput').addEventListener('keydown', e => {
 });
 
 // Pre-fill origin with current page origin
-document.getElementById('originInput').placeholder = window.location.origin || 'https://semsec.hepl-e-business.be';
+document.getElementById('originInput').placeholder = window.location.origin !== 'file://' ? window.location.origin : 'null';
 </script>
 </body>
 </html>
