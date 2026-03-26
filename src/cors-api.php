@@ -28,23 +28,30 @@ function add_headers_origin()
     if (DEVELOPMENT) {
         $possibleOrigins[] = 'http://localhost:5173';
         $possibleOrigins[] = 'http://localhost:5174';
+        $possibleOrigins[] = 'http://localhost:63342';
+        $possibleOrigins[] = 'null';
     }
 
     $headers = apache_request_headers();
-    $origin = (!empty($headers['Origin'])) ? $headers['Origin'] : '';
 
-    // the origin has to be listed in the $possibleOrigins
-    if (!in_array($origin, $possibleOrigins)) {
-        $origin = $possibleOrigins[0];
+    if (!empty($headers['Origin'])) {
+        $origin = $headers['Origin'];
+
+        // the origin has to be listed in the $possibleOrigins
+        if (!in_array($origin, $possibleOrigins)) {
+            $origin = $possibleOrigins[0];
+        }
+
+        header('Access-Control-Allow-Origin: ' . $origin);
+        header('Access-Control-Allow-Methods: POST, PUT, GET, DELETE, OPTIONS');
+        header("Access-Control-Allow-Headers: Authorization,Accept,Content-Type");
+        // header('Access-Control-Allow-Credentials: true');
+        header('Vary: Origin');
     }
 
-    header('Access-Control-Allow-Origin: ' . $origin);
-    header('Access-Control-Allow-Methods: POST, PUT, GET, DELETE, OPTIONS');
-    header("Access-Control-Allow-Headers: Authorization,Accept,Content-Type");
-    // header('Access-Control-Allow-Credentials: true');
-    header('Vary: Origin');
     header('Cache-Control: no-cache');
     header('X-Content-Type-Options: nosniff');
 
-    header('Content-Type: application/json; charset=UTF-8');
+    // if relevant, set the content type
+    // header('Content-Type: application/json; charset=UTF-8');
 }
