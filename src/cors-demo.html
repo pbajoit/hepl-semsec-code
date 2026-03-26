@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CORS Inspector</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+  <link href="./cors-demo.css" rel="stylesheet"/>
+</head>
+<body>
+
+<header>
+  <div class="logo-block">
+    <span class="logo-tag">HTTP Tool</span>
+    <h1>CORS <span>Inspector</span></h1>
+  </div>
+  <div class="subtitle">
+    Démonstration du header <code>Origin</code> et analyse des headers de réponse CORS en temps réel.
+  </div>
+</header>
+
+<main>
+  <!-- Input panel -->
+  <div class="panel-input">
+    <div class="panel-label">Requête HTTP</div>
+
+    <div class="origin-row">
+      <div class="field-group origin-field">
+        <label for="originInput">Origin (selon le navigateur)</label>
+        <input type="text" id="originInput" placeholder="https://hepl-e-business.be" readonly />
+      </div>
+    </div>
+
+    <div class="input-row">
+      <select class="method-select" id="methodSelect" aria-label="Méthode HTTP">
+        <option>GET</option>
+        <option>POST</option>
+        <option>PUT</option>
+        <option>DELETE</option>
+        <option>OPTIONS</option>
+        <option>HEAD</option>
+        <option>PATCH</option>
+      </select>
+      <div class="field-group">
+        <label for="urlInput">URL cible</label>
+        <input type="url" id="urlInput" placeholder="https://api.example.com/endpoint" />
+      </div>
+      <button class="btn-submit" id="submitBtn" onclick="sendRequest()">Envoyer →</button>
+    </div>
+  </div>
+
+  <!-- Request panel -->
+  <div class="panel" id="reqPanel">
+    <div class="panel-header">
+      <span class="panel-title">Requête envoyée</span>
+      <span class="status-badge" id="statusBadge"></span>
+    </div>
+    <div class="panel-body" id="reqBody">
+      <div class="placeholder">
+        <div class="placeholder-icon">↑</div>
+        <span>Entrez une URL et cliquez sur Envoyer</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Response / CORS panel -->
+  <div class="panel" id="resPanel">
+    <div class="panel-header">
+      <span class="panel-title" id="resPanelTitle" style="--accent:var(--accent2);--accent:var(--accent)">Headers de réponse &amp; CORS</span>
+    </div>
+    <div class="panel-body" id="resBody">
+      <div class="placeholder">
+        <div class="placeholder-icon">↓</div>
+        <span>La réponse apparaîtra ici</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+}
+
+function isCorsHeader(name) {
+  return /^access-control-|^vary$|^timing-allow-origin/i.test(name);
+}
+
+function statusClass(code) {
+  if (!code) return 'warn';
+  if (code >= 200 && code < 300) return 'ok';
+  if (code >= 300 && code < 400) return 'warn';
+  return 'err';
+}
+
+function statusLabel(code, ok) {
+  if (!code) return 'ERREUR';
+  if (ok)    return code + ' OK';
+  return code + ' ERR';
+}
+
+// ─── CORS Analysis ─────────────────────────────────────────────────────────
+
+function analyzeCors(headers, requestOrigin, status) {
+  const rules = [];
+  const h = name => headers[name] || null;
+  console.log(headers)
+
+  const acao = h('access-control-allow-origin');
+  const acam = h('access-control-allow-methods');
+  const acah = h('access-control-allow-headers');
+  const acac = h('access-control-allow-credentials');
+  const acma = h('access-control-max-age');
+  const aceh = h('access-control-expose-headers');
+  const vary = h('vary');
+
+  // 1. Access-Control-Allow-Origin
+  if (!acao) {
+    rules.push({ type:'fail', icon:'✗', text:`<strong>Access-Control-Allow-Origin</strong> absent — le navigateur <em>bloquera</em> la réponse pour toute requête cross-origin.` });
+  } else if (acao === '*') {
+    rules.push({ type:'warn', icon:'◈', text:`<strong>Access-Control-Allow-Origin: *</strong> — Toutes les origines sont autorisées. Pratique mais incompatible avec <code>credentials: true</code>.` });
+  } else if (requestOrigin && acao === requestOrigin) {
+    rules.push({ type:'pass', icon:'✓', text:`<strong>Access-Control-Allow-Origin</strong> correspond exactement à l'origine demandée (<code>${esc(requestOrigin)}</code>).` });
+  } else if (requestOrigin && acao !== requestOrigin) {
+    rules.push({ type:'fail', icon:'✗', text:`<strong>Access-Control-Allow-Origin: ${esc(acao)}</strong> ne correspond pas à l'origine <code>${esc(requestOrigin)}</code> — requête cross-origin <em>bloquée</em>.` });
+  } else {
+    rules.push({ type:'pass', icon:'✓', text:`<strong>Access-Control-Allow-Origin: ${esc(acao)}</strong>` });
+  }
+
+  // 2. Credentials
+  if (acac === 'true') {
+    rules.push({ type:'info', icon:'ℹ', text:`<strong>Access-Control-Allow-Credentials: true</strong> — les cookies et headers d'authentification sont transmis. <code>Allow-Origin</code> ne peut pas être <code>*</code>.` });
+    if (acao === '*') {
+      rules.push({ type:'fail', icon:'✗', text:`Conflit : <code>Allow-Origin: *</code> + <code>Allow-Credentials: true</code> est <em>invalide</em> selon la spec. Le navigateur bloquera la réponse.` });
+    }
+  }
+
+  // 3. Methods
+  if (acam) {
+    rules.push({ type:'pass', icon:'✓', text:`<strong>Access-Control-Allow-Methods: ${esc(acam)}</strong>` });
+  } else {
+    rules.push({ type:'neutral', icon:'—', text:`<strong>Access-Control-Allow-Methods</strong> absent (normal si pas de preflight).` });
+  }
+
+  // 4. Headers
+  if (acah) {
+    rules.push({ type:'pass', icon:'✓', text:`<strong>Access-Control-Allow-Headers: ${esc(acah)}</strong>` });
+  }
+
+  // 5. Expose-Headers
+  if (aceh) {
+    rules.push({ type:'info', icon:'ℹ', text:`<strong>Access-Control-Expose-Headers: ${esc(aceh)}</strong> — ces headers sont accessibles depuis JS via <code>response.headers.get()</code>.` });
+  }
+
+  // 6. Max-Age
+  if (acma) {
+    rules.push({ type:'info', icon:'ℹ', text:`<strong>Access-Control-Max-Age: ${esc(acma)}s</strong> — le résultat du preflight est mis en cache ${acma}s.` });
+  }
+
+  // 7. Vary
+  if (vary && /origin/i.test(vary)) {
+    rules.push({ type:'pass', icon:'✓', text:`<strong>Vary: ${esc(vary)}</strong> — le serveur indique que la réponse varie selon l'Origin (bonne pratique pour les caches).` });
+  } else if (!vary) {
+    rules.push({ type:'neutral', icon:'—', text:`Header <strong>Vary</strong> absent — les proxies peuvent mettre en cache une réponse sans tenir compte de l'origin.` });
+  }
+
+  // 8. HTTP status
+  if (status) {
+    if (status >= 200 && status < 300) {
+      rules.push({ type:'pass', icon:'✓', text:`Statut HTTP <strong>${status}</strong> — réponse valide.` });
+    } else if (status >= 300 && status < 400) {
+      rules.push({ type:'warn', icon:'⚡', text:`Statut HTTP <strong>${status}</strong> — redirection. CORS peut ne pas suivre automatiquement les redirections.` });
+    } else if (status === 401 || status === 403) {
+      rules.push({ type:'fail', icon:'✗', text:`Statut HTTP <strong>${status}</strong> — accès refusé. Vérifiez les credentials et les autorisations côté serveur.` });
+    } else if (status >= 400) {
+      rules.push({ type:'fail', icon:'✗', text:`Statut HTTP <strong>${status}</strong> — erreur client.` });
+    } else if (status >= 500) {
+      rules.push({ type:'fail', icon:'✗', text:`Statut HTTP <strong>${status}</strong> — erreur serveur.` });
+    }
+  }
+
+  return rules;
+}
+
+// ─── Render helpers ────────────────────────────────────────────────────────
+
+function renderHeadersTable(headers, highlightCors = true) {
+  const entries = Object.entries(headers);
+  if (!entries.length) return '<em style="color:var(--muted);font-size:.78rem">Aucun header disponible</em>';
+  
+  let html = '<table class="headers-table"><thead><tr><th>Header</th><th>Valeur</th></tr></thead><tbody>';
+  entries.sort((a, b) => {
+    // CORS headers first
+    const ac = isCorsHeader(a[0]) ? 0 : 1;
+    const bc = isCorsHeader(b[0]) ? 0 : 1;
+    return ac - bc || a[0].localeCompare(b[0]);
+  });
+  for (const [k, v] of entries) {
+    const cors = highlightCors && isCorsHeader(k);
+    html += `<tr class="${cors ? 'cors-header' : ''}">
+      <td class="h-name">${esc(k)}</td>
+      <td class="h-value">${esc(v)}</td>
+    </tr>`;
+  }
+  html += '</tbody></table>';
+  return html;
+}
+
+function renderCorsAnalysis(rules) {
+  if (!rules.length) return '';
+  let html = '<div class="cors-analysis">';
+  for (const r of rules) {
+    html += `<div class="cors-rule ${r.type}">
+      <span class="cors-text">${r.text}</span>
+    </div>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+// ─── Main request function ────────────────────────────────────────────────
+
+async function sendRequest() {
+  const urlVal    = document.getElementById('urlInput').value.trim();
+  const method    = document.getElementById('methodSelect').value;
+  const btn       = document.getElementById('submitBtn');
+  const reqBody   = document.getElementById('reqBody');
+  const resBody   = document.getElementById('resBody');
+  const badge     = document.getElementById('statusBadge');
+
+  if (!urlVal) {
+    document.getElementById('urlInput').focus();
+    return;
+  }
+
+  // Validate URL
+  let parsedUrl;
+  try { parsedUrl = new URL(urlVal); }
+  catch {
+    reqBody.innerHTML = `<div class="error-block"><div class="error-title">URL invalide</div><div class="error-msg">L'URL fournie n'est pas valide. Vérifiez le format (ex: https://api.example.com/path).</div></div>`;
+    return;
+  }
+
+  // Determine current page origin
+  const pageOrigin = window.location.origin !== 'null' ? window.location.origin : 'file://';
+  const effectiveOrigin = pageOrigin;
+  const isCrossOrigin = parsedUrl.origin !== pageOrigin;
+
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Envoi…';
+  badge.className = 'status-badge';
+  badge.textContent = '';
+
+  // ── Show request details ───────────────────────────────────────────────
+  const reqHeaders = {
+    'Origin': effectiveOrigin,
+    'Accept': '*/*',
+  };
+  
+  reqBody.innerHTML = `<div class="req-detail fade-in">
+    <div class="req-row">
+      <span class="req-key">Méthode</span>
+      <span class="req-val method">${esc(method)}</span>
+    </div>
+    <div class="req-row">
+      <span class="req-key">URL</span>
+      <span class="req-val highlight">${esc(urlVal)}</span>
+    </div>
+    <div class="req-row">
+      <span class="req-key">Origin header</span>
+      <span class="req-val">${esc(effectiveOrigin)}</span>
+    </div>
+    <div class="req-row">
+      <span class="req-key">Cross-Origin ?</span>
+      <span class="req-val">${isCrossOrigin
+        ? '<span class="chip chip-red">OUI</span> — CORS requis'
+        : '<span class="chip chip-green">NON</span> — Same-origin, pas de CORS'}</span>
+    </div>
+    <div class="req-row">
+      <span class="req-key">Mode fetch</span>
+      <span class="req-val">cors</span>
+    </div>
+    <div class="req-row">
+      <span class="req-key">Headers envoyés</span>
+      <div style="margin-top:.4rem">${renderHeadersTable(reqHeaders, false)}</div>
+    </div>
+  </div>`;
+
+  resBody.innerHTML = `<div class="placeholder"><span class="spinner"></span><span>En attente de la réponse…</span></div>`;
+
+  // ── Fetch ────────────────────────────────────────────────────────────────
+  const startTime = performance.now();
+  let response, responseHeaders = {}, corsError = null, status = null, statusText = '';
+
+  try {
+    const fetchOptions = {
+      method,
+      mode: 'cors',
+      credentials: 'omit',
+    };
+    // Only add body for methods that support it
+    if (!['GET','HEAD','OPTIONS'].includes(method)) {
+      fetchOptions.body = null;
+    }
+
+    response = await fetch(urlVal, fetchOptions);
+    status = response.status;
+    statusText = response.statusText;
+
+    // Collect all accessible response headers
+    response.headers.forEach((value, key) => {
+      responseHeaders[key.toLowerCase()] = value;
+    });
+
+  } catch (err) {
+    corsError = err;
+  }
+
+  const elapsed = Math.round(performance.now() - startTime);
+
+  btn.disabled = false;
+  btn.textContent = 'Envoyer →';
+
+  // ── Render response ──────────────────────────────────────────────────────
+
+  if (corsError) {
+    // CORS / network error
+    badge.className = 'status-badge err visible';
+    badge.textContent = 'BLOQUÉ';
+
+    const isCors = corsError.message === 'Failed to fetch' || /cors|network/i.test(corsError.message);
+    resBody.innerHTML = `<div class="fade-in">
+      <div class="error-block">
+        <div class="error-title">${isCors ? 'Erreur CORS / Réseau' : 'Erreur réseau'}</div>
+        <div class="error-msg">
+          <strong>Type :</strong> ${esc(corsError.name)}<br/>
+          <strong>Message :</strong> ${esc(corsError.message)}<br/><br/>
+          ${isCors ? `Le navigateur a <strong>bloqué</strong> la réponse car le serveur n'a pas retourné les headers CORS requis, 
+          ou la requête n'a pas pu aboutir (DNS, réseau, certificat invalide, etc.).<br/><br/>
+          <em>Note :</em> L'erreur exacte est volontairement masquée par le navigateur pour des raisons de sécurité 
+          (on ne peut pas distinguer une erreur CORS d'une erreur réseau depuis JS).</em>` : ''}
+        </div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  // Success (HTTP-level, CORS passed or same-origin)
+  const sc = statusClass(status);
+  badge.className = `status-badge ${sc} visible`;
+  badge.textContent = `${status} ${statusText}`;
+
+  const corsHeaders = Object.entries(responseHeaders).filter(([k]) => isCorsHeader(k));
+  const rules = analyzeCors(responseHeaders, effectiveOrigin, status);
+
+  let errorDetails = '';
+  if (status >= 400) {
+    errorDetails = `<div class="error-block">
+      <div class="error-title">Erreur HTTP ${status}</div>
+      <div class="error-msg">
+        <strong>Code :</strong> ${status}<br/>
+        <strong>Statut :</strong> ${esc(statusText)}<br/>
+        <strong>URL :</strong> ${esc(urlVal)}<br/>
+        <strong>Durée :</strong> ${elapsed}ms<br/><br/>
+        ${status === 401 ? 'Authentification requise. Ajoutez les credentials appropriés.' : ''}
+        ${status === 403 ? 'Accès interdit. Vérifiez les permissions et les headers d\'autorisation.' : ''}
+        ${status === 404 ? 'Ressource introuvable. Vérifiez l\'URL cible.' : ''}
+        ${status === 429 ? 'Trop de requêtes. Attendez avant de réessayer.' : ''}
+        ${status >= 500  ? 'Erreur interne du serveur distant.' : ''}
+      </div>
+    </div>`;
+  }
+
+  resBody.innerHTML = `<div class="fade-in">
+    ${errorDetails}
+    <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
+      <span style="font-size:.72rem;color:var(--muted)">Durée : <strong style="color:var(--text)">${elapsed}ms</strong></span>
+      <span style="font-size:.72rem;color:var(--muted)">Headers CORS présents : <strong style="color:${corsHeaders.length ? 'var(--success)' : 'var(--error)'}">${corsHeaders.length}</strong></span>
+    </div>
+
+    <div class="panel-label" style="margin-bottom:.75rem">Analyse CORS</div>
+    ${renderCorsAnalysis(rules)}
+
+    <div class="panel-label" style="margin-top:1.5rem;margin-bottom:.75rem">Tous les headers de réponse</div>
+    <p style="font-size:.7rem;color:var(--muted);margin-bottom:.6rem">Les headers <span style="color:var(--accent3)">en vert</span> sont des headers CORS.</p>
+    ${renderHeadersTable(responseHeaders)}
+  </div>`;
+}
+
+// Enter key on inputs
+document.getElementById('urlInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendRequest();
+});
+document.getElementById('originInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendRequest();
+});
+
+// Pre-fill origin with current page origin
+document.getElementById('originInput').placeholder = window.location.origin || 'https://semsec.hepl-e-business.be';
+</script>
+</body>
+</html>
