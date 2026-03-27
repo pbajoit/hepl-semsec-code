@@ -109,7 +109,6 @@ function statusLabel(code, ok) {
 function analyzeCors(headers, requestOrigin, status) {
   const rules = [];
   const h = name => headers[name] || null;
-  console.log(headers)
 
   const acao = h('access-control-allow-origin');
   const acam = h('access-control-allow-methods');
@@ -123,7 +122,7 @@ function analyzeCors(headers, requestOrigin, status) {
   if (!acao) {
     rules.push({ type:'fail', icon:'✗', text:`<strong>Access-Control-Allow-Origin</strong> absent — le navigateur <em>bloquera</em> la réponse pour toute requête cross-origin.` });
   } else if (acao === '*') {
-    rules.push({ type:'warn', icon:'◈', text:`<strong>Access-Control-Allow-Origin: *</strong> — Toutes les origines sont autorisées. Pratique mais incompatible avec <code>credentials: true</code>.` });
+    rules.push({ type:'warn', icon:'◈', text:`<strong>Access-Control-Allow-Origin: *</strong> — Toutes les origines sont autorisées.</code>.` });
   } else if (requestOrigin && acao === requestOrigin) {
     rules.push({ type:'pass', icon:'✓', text:`<strong>Access-Control-Allow-Origin</strong> correspond exactement à l'origine demandée (<code>${esc(requestOrigin)}</code>).` });
   } else if (requestOrigin && acao !== requestOrigin) {
@@ -164,13 +163,9 @@ function analyzeCors(headers, requestOrigin, status) {
 
   // 7. Vary
   if (vary && /origin/i.test(vary)) {
-    rules.push({
-      type: 'pass',
-      icon: '✓',
-      text: `<strong>Vary: ${esc(vary)}</strong> — le serveur indique que la réponse varie selon l'Origin.`
-    });
+    rules.push({ type:'pass', icon:'✓', text:`<strong>Vary: ${esc(vary)}</strong> — le serveur indique que la réponse varie selon l'Origin.` });
   } else if (!vary) {
-    rules.push({ type:'neutral', icon:'—', text:`Header <strong>Vary</strong> absent — les proxies peuvent mettre en cache une réponse sans tenir compte de l'origin.` });
+    rules.push({ type:'neutral', icon:'—', text:`Header <strong>Vary</strong> absent — les proxies peuvent mettre en cache une réponse sans tenir compte de l'Origin.` });
   }
 
   // 8. HTTP status
@@ -246,7 +241,8 @@ async function sendRequest() {
   let parsedUrl;
   try { parsedUrl = new URL(urlVal); }
   catch {
-    reqBody.innerHTML = `<div class="error-block"><div class="error-title">URL invalide</div><div class="error-msg">L'URL fournie n'est pas valide. Vérifiez le format (ex: https://api.example.com/path).</div></div>`;
+    reqBody.innerHTML = `<div class="error-block"><div class="error-title">URL invalide</div>
+    <div class="error-msg">L'URL fournie n'est pas valide. Vérifiez le format (ex: https://api.example.com/path).</div></div>`;
     return;
   }
 
