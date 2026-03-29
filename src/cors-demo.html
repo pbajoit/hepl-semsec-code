@@ -164,7 +164,11 @@ function analyzeCors(headers, requestOrigin, status) {
 
   // 7. Vary
   if (vary && /origin/i.test(vary)) {
-    rules.push({ type:'pass', icon:'✓', text:`<strong>Vary: ${esc(vary)}</strong> — le serveur indique que la réponse varie selon l'Origin (bonne pratique pour les caches).` });
+    rules.push({
+      type: 'pass',
+      icon: '✓',
+      text: `<strong>Vary: ${esc(vary)}</strong> — le serveur indique que la réponse varie selon l'Origin.`
+    });
   } else if (!vary) {
     rules.push({ type:'neutral', icon:'—', text:`Header <strong>Vary</strong> absent — les proxies peuvent mettre en cache une réponse sans tenir compte de l'origin.` });
   }
