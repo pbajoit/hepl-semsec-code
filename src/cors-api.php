@@ -2,8 +2,6 @@
 // include this file to build the CORS headers
 
 const DEVELOPMENT = True;
-const ACCEPT_ALL_HOST = True;
-
 if (DEVELOPMENT) {
     error_reporting(E_ALL);
     ini_set('display_errors', 1);
@@ -13,19 +11,19 @@ if (DEVELOPMENT) {
 /**
  * @return void
  */
-function add_headers_origin()
+function add_headers_origin($host, $dev = False, $acceptAllHost = False, $showCorsHeaders = False)
 {
     $possibleOrigins = [
-        "https://semsec.hepl-e-business.be"
+        $host
     ];
 
     // detect the origin of the API and accept any host
-    if (ACCEPT_ALL_HOST) {
+    if ($acceptAllHost) {
         $possibleOrigins[] = "https://" . $_SERVER['HTTP_HOST'];
     }
 
-    // accept developer origin working on localhost
-    if (DEVELOPMENT) {
+    // accept developer origin working on localhost webserver or file://
+    if ($dev) {
         $possibleOrigins[] = 'http://localhost:5173';
         $possibleOrigins[] = 'http://localhost:5174';
         $possibleOrigins[] = 'http://localhost:63342';
@@ -47,11 +45,12 @@ function add_headers_origin()
         header("Access-Control-Allow-Headers: Authorization,Accept,Content-Type");
         // header('Access-Control-Allow-Credentials: true');
         header('Vary: Origin');
+        if ($showCorsHeaders) {
+            header('Access-Control-Expose-Headers: ".
+            "Vary,Access-Control-Allow-Origin,Access-Control-Allow-Methods,Access-Control-Allow-Headers');
+        }
     }
 
     header('Cache-Control: no-cache');
     header('X-Content-Type-Options: nosniff');
-
-    // if relevant, set the content type
-    // header('Content-Type: application/json; charset=UTF-8');
 }
