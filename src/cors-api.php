@@ -11,15 +11,20 @@ if (DEVELOPMENT) {
 /**
  * @return void
  */
-function add_headers_origin($host, $dev = False, $acceptAllHost = False, $showCorsHeaders = False)
+function add_headers_origin($host, $dev, $acceptAllHost, $showCorsHeaders)
 {
+    $headers = apache_request_headers();
+    $response = [];
+
+    $response[] = "add_headers_origin for host: $host";
     $possibleOrigins = [
         $host
     ];
 
     // detect the origin of the API and accept any host
-    if ($acceptAllHost) {
-        $possibleOrigins[] = "https://" . $_SERVER['HTTP_HOST'];
+    if ($acceptAllHost && !empty($headers['Origin'])) {
+        $possibleOrigins[] = $headers['Origin'];
+        $response[] = "accepting any host ie $headers[Origin]";
     }
 
     // accept developer origin working on localhost webserver or file://
@@ -30,14 +35,17 @@ function add_headers_origin($host, $dev = False, $acceptAllHost = False, $showCo
         $possibleOrigins[] = 'null';
     }
 
-    $headers = apache_request_headers();
-
     if (!empty($headers['Origin'])) {
         $origin = $headers['Origin'];
+        $response[] = "looking for origin: $origin";
+        $response[] = "  in list: " . join(',', $possibleOrigins);
 
         // the origin has to be listed in the $possibleOrigins
         if (!in_array($origin, $possibleOrigins)) {
             $origin = $possibleOrigins[0];
+            $response[] = "no valid Origin";
+        } else {
+            $response[] = "valid Origin found in list";
         }
 
         header('Access-Control-Allow-Origin: ' . $origin);
@@ -46,11 +54,14 @@ function add_headers_origin($host, $dev = False, $acceptAllHost = False, $showCo
         // header('Access-Control-Allow-Credentials: true');
         header('Vary: Origin');
         if ($showCorsHeaders) {
-            header('Access-Control-Expose-Headers: ".
-            "Vary,Access-Control-Allow-Origin,Access-Control-Allow-Methods,Access-Control-Allow-Headers');
+            header('Access-Control-Expose-Headers: Vary,Access-Control-Allow-Origin,Access-Control-Allow-Methods,Access-Control-Allow-Headers');
         }
+    } else {
+        $response[] = "no Origin in the request";
     }
 
     header('Cache-Control: no-cache');
     header('X-Content-Type-Options: nosniff');
+
+    header('X-Debug-Response: ' . json_encode($response));
 }
