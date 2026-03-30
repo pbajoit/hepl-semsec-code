@@ -1,0 +1,2 @@
+Header always set Content-Security-Policy: "default-src 'self' 'unsafe-inline' https:;"
+Header set Content-Security-Policy-Report-Only: "default-src 'self';"
