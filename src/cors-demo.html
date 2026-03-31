@@ -45,7 +45,7 @@
         <label for="urlInput">URL cible</label>
         <input type="url" id="urlInput" placeholder="https://api.example.com/endpoint" />
       </div>
-      <button class="btn-submit" id="submitBtn" onclick="sendRequest()">Envoyer →</button>
+      <button class="btn-submit" id="submitBtn" onclick="sendRequest()">Envoyer</button>
     </div>
   </div>
 
@@ -291,7 +291,7 @@ async function sendRequest() {
     </div>
   </div>`;
 
-  resBody.innerHTML = `<div class="placeholder"><span class="spinner"></span><span>En attente de la réponse…</span></div>`;
+  resBody.innerHTML = `<div class="placeholder"><span class="spinner"></span><span>En attente de la réponse</span></div>`;
 
   // ── Fetch ────────────────────────────────────────────────────────────────
   const startTime = performance.now();
@@ -324,7 +324,7 @@ async function sendRequest() {
   const elapsed = Math.round(performance.now() - startTime);
 
   btn.disabled = false;
-  btn.textContent = 'Envoyer →';
+  btn.textContent = 'Envoyer';
 
   // ── Render response ──────────────────────────────────────────────────────
 
