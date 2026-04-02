@@ -1,7 +1,9 @@
-Header always set Content-Security-Policy: "default-src 'self' 'unsafe-inline';\
-    style-src 'self' 'unsafe-inline' \
-      https://fonts.googleapis.com/ \
-      https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css ;\
-    connect-src 'self' https: ;\
-    script-src 'self' 'unsafe-inline';\
-    font-src 'self' https://fonts.gstatic.com/ ;"
+Header always set Content-Security-Policy: "default-src 'self';\
+  script-src 'self' 'unsafe-inline';\
+  font-src https://fonts.gstatic.com/;\
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com/; \
+  connect-src https: ;"
+
+Header set Access-Control-Allow-Origin: https://semsec.hepl-e-business.be
+
+Header set Strict-Transport-Security: max-age=31536000
